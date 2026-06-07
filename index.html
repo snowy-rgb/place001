@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>P2P 게임 로비 프로토타입</title>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #222; color: #fff; }
+        .box { border: 1px solid #444; padding: 15px; margin-bottom: 15px; background: #333; }
+        input, button { padding: 8px; margin: 5px 0; }
+    </style>
+</head>
+<body>
+
+    <h1>P2P 멀티플레이어 테스트</h1>
+
+    <div class="box">
+        <h3>1. 방 만들기 (Host)</h3>
+        <button id="start-host">내 ID(방 ID) 생성하기</button>
+        <p>내 방 ID: <strong id="my-id" style="color: #00ff00;">-</strong></p>
+    </div>
+
+    <div class="box">
+        <h3>2. 참가하기 (Client)</h3>
+        <input type="text" id="peer-id-input" placeholder="상대방 방 ID 입력">
+        <button id="connect-btn">방 접속하기</button>
+    </div>
+
+    <div class="box">
+        <h3>3. 게임 데이터 송수신 상태</h3>
+        <div id="status" style="color: #ffcc00;">연결 대기 중...</div>
+        <input type="text" id="msg-input" placeholder="전송할 데이터 (예: 캐릭터 좌표)">
+        <button id="send-btn" disabled>데이터 전송</button>
+        <h4>받은 데이터 로그:</h4>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let peer = null;
+        let conn = null;
+
+        const myIdEl = document.getElementById('my-id');
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+        const sendBtn = document.getElementById('send-btn');
+        const msgInput = document.getElementById('msg-input');
+
+        // 로그 기록 함수
+        function log(message) {
+            logEl.innerHTML += `<div>${message}</div>`;
+        }
+
+        // 데이터 송수신 이벤트 바인딩
+        function setupConnection() {
+            conn.on('open', () => {
+                statusEl.innerText = "연결 성공! 이제 직접 통신합니다.";
+                statusEl.style.color = "#00ff00";
+                sendBtn.disabled = false;
+            });
+
+            conn.on('data', (data) => {
+                log(`[상대방이 보낸 데이터]: ${JSON.stringify(data)}`);
+            });
+
+            conn.on('close', () => {
+                statusEl.innerText = "연결이 끊어졌습니다.";
+                statusEl.style.color = "#ff0000";
+                sendBtn.disabled = true;
+            });
+        }
+
+        // 1. 방장(Host)으로 시작하기
+        document.getElementById('start-host').addEventListener('click', () => {
+            peer = new Peer(); // PeerJS 오픈 시그널링 서버에 접속
+
+            peer.on('open', (id) => {
+                myIdEl.innerText = id;
+                statusEl.innerText = "방이 개설되었습니다. 참가자를 기다리는 중...";
+            });
+
+            // 누군가 나에게 연결 요청을 했을 때
+            peer.on('connection', (connection) => {
+                conn = connection;
+                setupConnection();
+            });
+        });
+
+        // 2. 참가자(Client)로 접속하기
+        document.getElementById('connect-btn').addEventListener('click', () => {
+            const targetId = document.getElementById('peer-id-input').value;
+            if (!targetId) return alert('접속할 방 ID를 입력하세요.');
+
+            peer = new Peer(); // 나도 Peer 객체 생성
+
+            peer.on('open', () => {
+                // 입력한 상대방 ID로 연결 시도
+                conn = peer.connect(targetId);
+                setupConnection();
+            });
+        });
+
+        // 3. 데이터 보내기 버튼
+        sendBtn.addEventListener('click', () => {
+            const msg = msgInput.value;
+            if (!msg) return;
+            
+            // P2P로 직접 데이터 전송 (오브젝트, 문자열, 숫자 다 가능)
+            conn.send({ text: msg, timestamp: Date.now() });
+            log(`[내가 보낸 데이터]: ${msg}`);
+            msgInput.value = '';
+        });
+    </script>
+</body>
+</html>
