@@ -59,7 +59,7 @@
             });
 
             conn.on('data', (data) => {
-                log(`[상대방이 보낸 데이터]: ${JSON.stringify(data).text}`);
+                log(`[상대방이 보낸 데이터]: ${data.text}`);
             });
 
             conn.on('close', () => {
